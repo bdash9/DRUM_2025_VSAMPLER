@@ -1,4 +1,4 @@
-I have made some small changes to the fl;oowing project found at:
+I have made some small changes to the folowing project found at:
 
 https://github.com/zircothc/DRUM_2025_VSAMPLER
 
