@@ -14,7 +14,7 @@
 
 //#define mylcd_type1
 #define mylcd_type2
-// if you don't have a ADS1115 and rotary comment next line
+// if you don't have a ADS1115 and rotary comment out next line
 //#define ads_ok
 
 
@@ -53,7 +53,8 @@ SPIClass sdSPI(HSPI); // SPI BUS for SD
 #endif
 
 TwoWire I2C_2 = TwoWire(1); // 2nd I2C port
-Adafruit_ADS1015 ads;
+//Adafruit_ADS1015 ads;
+Adafruit_ADS1115 ads;   // 16-bit
 int16_t adc0=0;
 int16_t adc1=0;
 int16_t adc2=0;
@@ -218,6 +219,14 @@ Arduino_GFX *gfx = new Arduino_NV3041A(bus, GFX_NOT_DEFINED /* RST */, 0 /* rota
 #define WAVE_ORIGIN_X 6
 #define WAVE_ORIGIN_Y (BheightPad*2)+2
 
+// Ben - forward declarations for functions in other .ino files
+extern volatile byte pendingTrigger[16];
+extern volatile byte pendingPitch[16];
+void initSeqTimer();
+void startSeqTimer();
+void stopSeqTimer();
+void updateSeqTempo();
+
 // 16+16+8+8
 int BPOS[48][4]; // filled in setup
 int BCOLOR[48];  // to store current button color
@@ -235,7 +244,7 @@ int count_loop=0;
 // Touchscreen coordinates: (x, y) and pressure (z)
 int cox, coy, coz;
 ////////////////////////////// TIMER SEQ 
-#include <uClock.h>
+//#include <uClock.h>
 
 ////////////////////////////// MIDI USB
 //#include <Adafruit_TinyUSB.h>
@@ -576,12 +585,15 @@ int octave=5;
 int bpm=120;
 byte selected_pattern=0;
 byte s_old_selected_pattern=99;
-byte sstep=0;
+volatile byte sstep=0;  
 int s_old_sstep=-1;
 
 uint16_t mutes=0;
 uint16_t solos=0;
 uint16_t pattern[16];
+
+// Ben
+//uint16_t tick=0;
 
 byte fx1=0; 
 
@@ -593,9 +605,9 @@ uint8_t  melodic[16][16];
 //uint16_t isMelodic=B11111111<<8 | B00000000; // last 8 sounds are set to melodic, set into setup
 uint16_t isMelodic=B00000000<<8 | B00000000; // none set to melodic
 
-byte firstStep=0;
-byte lastStep=15;
-byte newLastStep=15; 
+volatile byte firstStep=0;
+volatile byte lastStep=15;
+volatile byte newLastStep=15; 
 
 byte firstMemory=0;
 byte lastMemory=15;
@@ -609,10 +621,10 @@ byte selected_sndSet=0;
 byte s_old_selected_sndSet=99;
 int ztranspose=0;
 int zmpitch=0;
-bool load_flag=false;
+volatile bool load_flag=false;
 
 byte sync_state=0; // 0 no sync, 1, master, 2 slave
-bool sync_flag=false;
+volatile bool sync_flag=false;
 
 // ESCALAS (255 = void)
 uint8_t selected_scale=0;
@@ -703,16 +715,16 @@ byte nkey;
 byte modeZ=0;
 int s_old_modeZ=-1;
 
-bool playing     = false;
+volatile bool playing     = false;
 bool pre_playing = false;
 bool songing     = false; // switch to make load auto patterns++
 bool recording   = false;
 bool shifting    = false;
 
-bool clearPADSTEP=false;
+volatile bool clearPADSTEP=false;
 bool clearPATTERNPADS=false;
 bool refreshPATTERN=true;
-bool refreshPADSTEP=false;
+volatile bool refreshPADSTEP=false;
 bool refreshMODES=true;
 //bool refreshPADTOUCHED=false;
 
@@ -743,62 +755,59 @@ bool refreshMODES=true;
 //   // Volver a habilitar la interrupción
 //   timer_group_enable_alarm_in_isr(TIMER_GROUP, TIMER_INDEX);
 // }
+/*
+ void IRAM_ATTR tic(){  
+   if (sstep==firstStep){
+     sync_flag=true;
+   }  
+   for (int f = 0; f < 16; f++) { 
+     if (!bitRead(mutes, f)) {
+       if (solos == 0 || (solos > 0 && bitRead(solos, f))) {
+         if (bitRead(pattern[f], sstep)) { // note on
+           latch[f]=0;        
+           if (bitRead(isMelodic,f)){
+             synthESP32_TRIGGER_P(f,melodic[f][sstep]);
+           } else {
+             // Trigger con el pitch del canal
+             synthESP32_TRIGGER(f);
+           }
+         } 
+       }
+    }
+   }
 
-// void IRAM_ATTR tic(){  
-//   if (sstep==firstStep){
-//     sync_flag=true;
-//   }  
-//   for (int f = 0; f < 16; f++) { 
-//     if (!bitRead(mutes, f)) {
-//       if (solos == 0 || (solos > 0 && bitRead(solos, f))) {
-//         if (bitRead(pattern[f], sstep)) { // note on
-//           latch[f]=0;        
-//           if (bitRead(isMelodic,f)){
-//             synthESP32_TRIGGER_P(f,melodic[f][sstep]);
-//           } else {
-//             // Trigger con el pitch del canal
-//             synthESP32_TRIGGER(f);
-//           }
-//         } 
-//       }
-//     }
-//   }
+   sstep++;
+   // Comprobar step final
+   if (sstep==(lastStep+1) || sstep==(newLastStep+1) || sstep==16) {
+     lastStep=newLastStep;
+     sstep=firstStep;
+     if (songing){
+       load_flag=true; // inside loop I will load next pattern
+     }
+   }
+   refreshPADSTEP=true;
+ }
+*/
 
-//   sstep++;
-//   // Comprobar step final
-//   if (sstep==(lastStep+1) || sstep==(newLastStep+1) || sstep==16) {
-//     lastStep=newLastStep;
-//     sstep=firstStep;
-//     if (songing){
-//       load_flag=true; // inside loop I will load next pattern
-//     }
-//   }
-//   refreshPADSTEP=true;
-// }
-
-// void IRAM_ATTR onSync24() {
-//   // FX1
-//   if (playing){
-//     if (!(tick % (12)) && fx1==1) {
-//       synthESP32_TRIGGER(selected_sound);
-//     }
-//     if (!(tick % (6)) && fx1==2) {
-//       synthESP32_TRIGGER(selected_sound);
-//     }
-//     if (!(tick % (3)) && fx1==3) {
-//       synthESP32_TRIGGER(selected_sound);
-//     }
-//   }
-  
-//   // Lanzar cambio de step
-//   if (!(tick % (6))) tic();
-
-//   // Limpiar marcas de sound y step
-//   if ((tick % (6))==4) clearPADSTEP=true;
-//   tick++;
-//   if (tick==24) tick=0;
-// }
-
+// Ben
+// tick is now passed as parameter by uClock — no manual increment needed
+/*
+void IRAM_ATTR onSync24(uint32_t tick) {
+  if (playing){
+    if (!(tick % (12)) && fx1==1) {
+      synthESP32_TRIGGER(selected_sound);
+    }
+    if (!(tick % (6)) && fx1==2) {
+      synthESP32_TRIGGER(selected_sound);
+    }
+    if (!(tick % (3)) && fx1==3) {
+      synthESP32_TRIGGER(selected_sound);
+    }
+  }
+  if (!(tick % (6))) tic();
+  if ((tick % (6))==4) clearPADSTEP=true;
+}
+*/
 ////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////
@@ -810,6 +819,22 @@ void setup() {
   Serial.begin(115200);
   delay(500);
   randomSeed(analogRead(0));
+  //Serial.println("Starting Drum machine");
+
+  // Ben - clear all patterns for clean test
+for (int f = 0; f < 16; f++) {
+    pattern[f] = 0;
+}
+Serial.println("Patterns cleared");
+
+
+// Ben - hardcoded test pattern
+// Pattern for track 0: beats on every step
+pattern[0] = 0xFFFF;  // all 16 steps on track 0
+// Pattern for track 1: every other step  
+pattern[1] = 0xAAAA;  // alternating steps on track 1
+Serial.println("Test pattern loaded");
+
   // // FX
   // if (!psramFound()) {
   //   Serial.println("¡PSRAM no detectada!");
@@ -829,9 +854,10 @@ void setup() {
 
   // Iniciar el ADS1015 en el segundo puerto I2C
   if (!ads.begin(0x48, &I2C_2)) { // Dirección I2C por defecto del ADS1015/ADS1115
-    Serial.println("ADS1015 not found.");
+    Serial.println("ADS1115 not found.");
   } else {
-    Serial.println("ADS1015 init OK.");
+    Serial.println("ADS1115 init OK.");
+    ads.setGain(GAIN_ONE);
   }
   #endif
 //........................................................................................................................
@@ -927,10 +953,8 @@ if (!SD.begin(SD_CS, sdSPI)) {
   isMelodic=B11111111<<8 | B00000000;
 
   // Setup our clock system
-  uClock.init();
-  // Commented this out due to error -Ben
-  //uClock.setOnSync24(onSync24Callback);
-  uClock.setTempo(bpm);
+initSeqTimer();
+  
 
   // initTimer(onSync24);
   // setBPM(120);  // 120 BPM
@@ -980,13 +1004,43 @@ if (!SD.begin(SD_CS, sdSPI)) {
 //////////////////////////////  L O O P  //////////////////////////////
 
 void loop() {
+  //  Process pending triggers from ISR safely — Ben
+  for (int f = 0; f < 16; f++) {
+    if (pendingTrigger[f]) {          // ← check flag
+      pendingTrigger[f] = 0;          // ← clear flag
+      if (bitRead(isMelodic, f)) {
+        synthESP32_TRIGGER_P(f, pendingPitch[f]);
+      } else {
+        synthESP32_TRIGGER(f);
+      }
+    }
+  }
+  // ← NO closing brace here — still inside loop()
 
-  // flag to do things outside sequencer timer isr
+  // Ben - debug
+static unsigned long lastDebug = 0;
+if (millis() - lastDebug > 300) {
+    lastDebug = millis();
+    extern volatile uint32_t tic_counter;   // ← ADD
+    Serial.print("tic=");
+    Serial.print(tic_counter);              // ← ADD
+    Serial.print(" step=");
+    Serial.print(sstep);
+    Serial.print(" play=");
+    Serial.print(playing);
+    Serial.print(" last=");
+    Serial.print(lastStep);                 // ← ADD
+    Serial.print(" pat0=");
+    Serial.println(pattern[0]);
+    Serial.flush();
+}
+
   if (load_flag){
     load_flag=false;
     pattern_song_counter++;
-    // Comprobar step final
-    if ( (pattern_song_counter>lastMemory) || (pattern_song_counter>newLastMemory) || (pattern_song_counter==16) ){
+    if ( (pattern_song_counter>lastMemory) || 
+         (pattern_song_counter>newLastMemory) || 
+         (pattern_song_counter==16) ){
       lastMemory=newLastMemory;
       pattern_song_counter=firstMemory;
     }
@@ -999,46 +1053,15 @@ void loop() {
     refreshPADSTEP=true;
   }
 
-  // if (sync_flag){ 
-  //     sync_flag=false;
-  //     if (sync_state==1){   // if this machine is master
-  //       Serial1.write(11);
-  //     }
-  // }
-  // if (sync_state==2){ // if this machine is slave
-  //   if (Serial1.available() > 0){
-  //     byte var=Serial1.read();
-  //     if (var==11){
-  //       if (pre_playing){
-  //         sstep=firstStep;
-  //         pre_playing=false;
-  //         uClock.start();
-  //         refreshPADSTEP=true;          
-  //       }
-  //     }
-  //   }
-  // }
-
-  // Read MIDI ports
-  //MIDI.read();
   #ifdef ads_ok
   shiftR1=!digitalRead(pinBR1);
-  #endif
-
-  // if (shiftR1!=old_shiftR1){
-  //   old_shiftR1=shiftR1;
-  //   drawScreen1b();
-  //   //Serial.println(shiftR1);
-  //   if (!shiftR1) refreshPATTERN=true;
-  // }
-  #ifdef ads_ok
   READ_ENCODERS();
   #endif
+
   read_touch();
   DO_KEYPAD();
   REFRESH_KEYS();
   REFRESH_STATUS();
-
   showLastTouched();
   clearLastTouched();
   
@@ -1050,8 +1073,7 @@ void loop() {
   }
   #endif
 
-  // Weird code!!!! Segunda carga de setsoud porque con la primera no se generan bien el inicio y el fin de sample y el volumen/pan. Parece que no le da tiempo.
-  if (flag_ss=true){
+  if (flag_ss==true){
     count_loop++;
     if (count_loop==2){
       count_loop=0;
@@ -1062,7 +1084,7 @@ void loop() {
     } 
   }
 
-}
+}  
 
 
 

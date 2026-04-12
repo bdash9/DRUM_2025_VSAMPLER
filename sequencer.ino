@@ -1,97 +1,88 @@
+// sequencer.ino
+#include "esp_timer.h"
 
-// // Inicializa el timer y setea el callback
-// void initTimer(void (*callback)()) {
-//   onSync24Callback = callback;
+volatile uint32_t tic_counter        = 0;
+volatile uint32_t seq_tick           = 0;
+volatile byte     pendingTrigger[16] = {0};
+volatile byte     pendingPitch[16]   = {0};
 
-//   timer_config_t config = {
-//     .alarm_en = TIMER_ALARM_EN,
-//     .counter_en = TIMER_PAUSE,
-//     .intr_type = TIMER_INTR_LEVEL,
-//     .counter_dir = TIMER_COUNT_UP,
-//     .auto_reload = TIMER_AUTORELOAD_EN,
-//     .divider = TIMER_DIVIDER
-//   };
+static esp_timer_handle_t seq_timer_handle = NULL;
 
-//   timer_init(TIMER_GROUP, TIMER_INDEX, &config);
-//   timer_isr_register(TIMER_GROUP, TIMER_INDEX, onTimer, NULL, ESP_INTR_FLAG_IRAM, NULL);
-// }
+void IRAM_ATTR tic();
 
-// // Configura el BPM
-// void setBPM(float bpm) {
-//   if (bpm <= 0) return;
-//   float intervalSeconds = 60.0 / (bpm * 24.0);  // 24ppqn como en uClock
-//   uint64_t intervalUs = intervalSeconds * TIMER_SCALE;
-//   timer_set_alarm_value(TIMER_GROUP, TIMER_INDEX, intervalUs);
-// }
+// Timer callback — fires at PPQN_24 rate (24x per beat)
+static void seq_timer_cb(void* arg) {
+    if (!playing) return;
 
-// // Arranca el timer
-// void startTimer() {
-//   timer_set_counter_value(TIMER_GROUP, TIMER_INDEX, 0);
-//   timer_enable_intr(TIMER_GROUP, TIMER_INDEX);
-//   timer_start(TIMER_GROUP, TIMER_INDEX);
-// }
+    // FX1 repeat modes
+    if (!(seq_tick % 12) && fx1==1) pendingTrigger[selected_sound] = 1;
+    if (!(seq_tick % 6)  && fx1==2) pendingTrigger[selected_sound] = 1;
+    if (!(seq_tick % 3)  && fx1==3) pendingTrigger[selected_sound] = 1;
 
-// // Detiene el timer
-// void stopTimer() {
-//   timer_pause(TIMER_GROUP, TIMER_INDEX);
-//   timer_disable_intr(TIMER_GROUP, TIMER_INDEX);
-// }
+    // Advance step every 6 ticks = 16th note
+    if (!(seq_tick % 6)) tic();
 
-void IRAM_ATTR tic(){  
-  if (sstep==firstStep){
-    sync_flag=true;
-  }  
-  for (int f = 0; f < 16; f++) { 
-    if (!bitRead(mutes, f)) {
-      if (solos == 0 || (solos > 0 && bitRead(solos, f))) {
-        if (bitRead(pattern[f], sstep)) { // note on
-          latch[f]=0;        
-          if (bitRead(isMelodic,f)){
-            synthESP32_TRIGGER_P(f,melodic[f][sstep]);
-          } else {
-            // Trigger con el pitch del canal
-            synthESP32_TRIGGER(f);
-          }
-        } 
-      }
-    }
-  }
+    // Clear step highlight
+    if ((seq_tick % 6) == 4) clearPADSTEP = true;
 
-  sstep++;
-  // Comprobar step final
-  if (sstep==(lastStep+1) || sstep==(newLastStep+1) || sstep==16) {
-    lastStep=newLastStep;
-    sstep=firstStep;
-    if (songing){
-      load_flag=true; // inside loop I will load next pattern
-    }
-  }
-  refreshPADSTEP=true;
+    seq_tick++;
+    if (seq_tick >= 24) seq_tick = 0;
 }
 
-
-void onSync24Callback(uint32_t tick){
-
-  // FX1
-  if (playing){
-    if (!(tick % (12)) && fx1==1) {
-      synthESP32_TRIGGER(selected_sound);
-    }
-    if (!(tick % (6)) && fx1==2) {
-      synthESP32_TRIGGER(selected_sound);
-    }
-    if (!(tick % (3)) && fx1==3) {
-      synthESP32_TRIGGER(selected_sound);
-    }
-  }
-  
-  // Lanzar cambio de step
-  if (!(tick % (6))) tic();
-
-  // Limpiar marcas de sound y step
-  if ((tick % (6))==4) clearPADSTEP=true;
-
+void initSeqTimer() {
+    esp_timer_create_args_t args = {};
+    args.callback               = seq_timer_cb;
+    args.arg                    = NULL;
+    args.dispatch_method        = ESP_TIMER_TASK;
+    args.name                   = "seq";
+    args.skip_unhandled_events  = true;
+    esp_err_t err = esp_timer_create(&args, &seq_timer_handle);
+    Serial.printf("initSeqTimer: %s\n", err==ESP_OK ? "OK" : "FAILED");
 }
 
+void startSeqTimer() {
+    if (seq_timer_handle == NULL) return;
+    uint64_t period_us = 60000000ULL / ((uint64_t)bpm * 24);
+    seq_tick = 0;
+    esp_err_t err = esp_timer_start_periodic(seq_timer_handle, period_us);
+    Serial.printf("startSeqTimer %lluus: %s\n", period_us, err==ESP_OK ? "OK" : "FAILED");
+}
 
+void stopSeqTimer() {
+    if (seq_timer_handle != NULL) {
+        esp_timer_stop(seq_timer_handle);
+    }
+}
 
+void updateSeqTempo() {
+    if (seq_timer_handle == NULL || !playing) return;
+    esp_timer_stop(seq_timer_handle);
+    uint64_t period_us = 60000000ULL / ((uint64_t)bpm * 24);
+    esp_timer_start_periodic(seq_timer_handle, period_us);
+}
+
+void IRAM_ATTR tic() {
+    tic_counter++;
+
+    if (sstep == firstStep) sync_flag = true;
+
+    for (int f = 0; f < 16; f++) {
+        if (!bitRead(mutes, f)) {
+            if (solos == 0 || (solos > 0 && bitRead(solos, f))) {
+                if (bitRead(pattern[f], sstep)) {
+                    latch[f]          = 0;
+                    pendingTrigger[f] = 1;
+                    pendingPitch[f]   = bitRead(isMelodic, f) ? melodic[f][sstep] : 0;
+                }
+            }
+        }
+    }
+
+    sstep++;
+    if (sstep==(lastStep+1) || sstep==(newLastStep+1) || sstep==16) {
+        lastStep = newLastStep;
+        sstep    = firstStep;
+        if (songing) load_flag = true;
+    }
+    refreshPADSTEP = true;
+}
