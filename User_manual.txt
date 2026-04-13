@@ -1,0 +1,554 @@
+# DRUM SAMPLER 2025 — User Manual
+
+---
+
+## Hardware Overview
+
+┌─────────────────────────────────────────────┐
+│  [0]  [1]  [2]  [3]  [4]  [5]  [6]  [7]   │ ← Track Pads Row 1
+│  [8]  [9] [10] [11] [12] [13] [14] [15]   │ ← Track Pads Row 2
+│ [WAVE] [SAM][INI][END][PIT][RVS][VOL][PAN] │ ← Waveform + Params
+│        [FIL][BPM][MVO][TRP][MFI][OCT][SCA] │ ← More Params
+│ [PAD][RNDP][LDPS][SVPS][MUTE][PIAN][PLAY][SONG]│ ← Functions
+│ [SHFT][-1][-10][+10][+1][   ][   ][SHFT]  │ ← Controls
+└─────────────────────────────────────────────┘
+
+---
+
+## Screen Layout
+
+TOP TWO ROWS — 16 Track Pads
+  Each box shows:
+    Number (0-15)
+    Colored indicators = active steps
+    Step pattern display
+
+MIDDLE LEFT — Waveform Display
+  Shows current sample waveform
+  SAM XX XX = sample number / slot
+
+MIDDLE RIGHT — Parameter Bars
+  16 vertical bars = 16 parameters
+  Highlighted bar = currently selected
+  Value shown below each bar
+
+BOTTOM ROW 1 — Function Buttons
+  PAD / RND P / LOAD PS / SAVE PS /
+  MUTE / PIANO / PLAY / SONG
+
+BOTTOM ROW 2 — Value Controls
+  SHIFT / -1 / -10 / +10 / +1 / SHIFT
+
+---
+
+## Quick Start
+
+1. Power on → screen shows 16 pads
+2. Tap any pad → hear that track's sound
+3. Tap PAD button twice → WRITE mode
+4. Tap pads to toggle steps on/off
+5. Tap PAD button once → back to PAD mode
+6. Press PLAY → hear your pattern loop
+7. Press PLAY again → stop
+
+---
+
+## Track Pads (0-15)
+
+Each pad represents one track (voice/instrument).
+
+Each track has:
+  Its own sample assignment
+  Its own 16-step pattern
+  Its own volume, pan, pitch settings
+  Its own filter setting
+  Independent mute/solo state
+
+---
+
+## Operating Modes
+
+### PAD Mode (default)
+Tap any pad → plays that track's sound immediately
+              also selects that track for editing
+Useful for: Live performance, auditioning sounds
+
+### SEL Mode (press PAD once)
+Tap any pad → selects that track for editing
+              automatically enters WRITE mode
+Useful for: Quickly switching which track to edit
+
+### WRITE Mode (press PAD twice)
+Tap any pad → TOGGLES that step ON or OFF
+              for the currently selected track
+Lit pad     = step is ON (will trigger)
+Dark pad    = step is OFF (silent)
+Useful for: Programming beat patterns
+
+### MUTE Mode
+Access: Press MUTE button
+Tap any pad → toggles mute on that track
+Muted tracks show differently colored pad
+Useful for: Live performance, dropping tracks in/out
+
+### SOLO Mode
+Access: Press MUTE button twice
+Tap any pad → solos that track
+              all other tracks silent
+Useful for: Hearing one track in isolation
+
+### MELODIC Mode
+Access: Press MUTE button three times
+Tap any pad → toggles melodic mode for that track
+In melodic mode: track reads pitch from melodic array
+                 instead of fixed pitch value
+Useful for: Creating melodies with drum sounds
+
+### CLEAR Mode
+Access: Press MUTE button four times
+Tap any pad → clears ALL steps for that track
+              (erases the pattern)
+Useful for: Quickly clearing a track
+
+### PIANO Mode
+Access: Press PIANO button
+16 pads = 16 semitones of current sound
+Tap pad 0  = lowest pitch
+Tap pad 15 = highest pitch
+Useful for: Playing melodic lines with any sample
+            Best with SYNTH samples
+
+---
+
+## Playing and Stopping
+
+PLAY button:
+  When stopped → starts sequencer from step 1
+                 exits WRITE mode automatically
+  When playing → stops sequencer
+                 resets to step 1
+
+SHIFT + PLAY:
+  When stopped → starts in RECORD mode
+  When playing → toggles record on/off
+
+---
+
+## Recording in Real Time
+
+1. Press SHIFT + PLAY → starts recording
+2. Tap pads in rhythm while sequencer plays
+3. Each tap writes a step into current pattern
+4. Press SHIFT + PLAY again → stops recording
+                               keeps pattern
+
+Note: Cannot record in SONG mode
+
+---
+
+## Parameter Bars
+
+### Selecting a Parameter
+Tap any of the 16 bars in the middle row
+Selected bar highlights yellow
+Use +1 / -1 / +10 / -10 to change value
+
+### Parameter Reference
+
+SAM  Sample       0-49          Which sample plays on this track
+INI  Start        0-2047        Sample start point
+END  End          0-2047        Sample end point
+PIT  Pitch        0-127         Playback pitch (60=normal)
+RVS  Reverse      0-1           0=forward, 1=reverse
+VOL  Volume       0-127         Track volume
+PAN  Pan          -127 to +127  Stereo position
+FIL  Filter       0-127         Low pass filter cutoff
+BPM  Tempo        0-400         Beats per minute
+MVO  Master Vol   0-127         Overall output volume
+TRP  Transpose    -1 to +1      Transpose all melodic tracks
+MFI  Master Filt  0-127         Master low pass filter
+OCT  Octave       0-20          Octave for piano mode
+MPI  Master Pitch -1 to +1      Global pitch shift
+SYN  Sync         0-2           0=off, 1=master, 2=slave
+SCA  Scale        0-12          Musical scale quantization
+
+---
+
+## Sample Selection
+
+1. Tap a track pad to select it
+2. Tap the SAM bar (leftmost parameter)
+3. Press +1 or +10 to scroll through samples
+4. Press -1 or -10 to go back
+5. Sound previews when you change it
+   (while not playing)
+
+### Available Samples
+0-31    = Drum samples
+          kicks, snares, hihats, percussion etc.
+
+32      = SYNTH1 (melodic/synth sound)
+33-39   = More drum/percussion samples
+40      = SYNTH4 (melodic/synth sound)
+41-42   = Drum samples
+43      = SYNTH6 (melodic/synth sound)
+44-49   = More drum samples
+
+---
+
+## Sample Parameters
+
+### Start and End Points (INI/END)
+INI = where sample playback begins
+END = where sample playback stops
+
+Use to:
+  Trim silence from start
+  Cut sample short
+  Create stutters and chops
+  Layer different parts of same sample
+
+INI must always be less than END
+
+### Pitch (PIT)
+60  = original pitch (concert A)
+>60 = higher pitch (chipmunk effect)
+<60 = lower pitch (pitched down)
+
+Range: 0-127 (MIDI note range)
+In PIANO mode: overrides this with pad position
+
+### Reverse (RVS)
+0 = plays sample forward (normal)
+1 = plays sample backwards
+
+Creates reverse cymbal, reverse snare effects
+
+### Volume (VOL)
+0   = silent
+80  = default
+127 = maximum
+
+Per-track independent volume
+
+### Pan (PAN)
+-127 = hard left
+0    = center
++127 = hard right
+
+Creates stereo width in your mix
+
+### Filter (FIL)
+0   = filter fully open (all frequencies pass)
+127 = filter fully closed (muffled/muted)
+
+Low pass filter — cuts high frequencies
+Useful for: hi-hats, cymbals, pads
+
+---
+
+## BPM / Tempo
+
+Select BPM bar
+Use +1/-1 for fine adjustment
+Use +10/-10 for fast scrolling
+
+Range: 0-400 BPM
+Default: 120 BPM
+
+With rotary encoder connected:
+  Dedicated BPM knob for real-time control
+
+---
+
+## SHIFT Button
+
+SHIFT changes the function of other buttons:
+
+Button    Normal              SHIFT held
+PAD       Cycle PAD/SEL/WRITE → SEL mode directly
+RND P     Random pattern/sound → Random Sound 2
+MUTE      Cycle mute modes    → Reset all mutes/solos
+PLAY      Start/Stop          → Record start/stop
+SONG      Song mode           → Memory select mode
+-1        Value -1            → Value -1
+-10       Value -10           → Value -100
++10       Value +10           → Value +100
++1        Value +1            → Value +1
+
+---
+
+## Patterns
+
+### What is a Pattern?
+One pattern = 16 steps × 16 tracks
+Each step is ON or OFF per track
+One bar of music at any BPM
+
+### Programming a Pattern
+1. Press PAD twice → WRITE mode
+   (or press PAD once then tap a pad → SEL→WRITE)
+2. Select which track to edit
+   (tap its pad number)
+3. Tap steps 0-15 to toggle ON/OFF
+4. Lit = will play, Dark = silent
+5. Press PAD to exit WRITE mode
+6. Press PLAY to hear it
+
+### First Step / Last Step
+Access: Press MUTE button 4-5 times
+        → FIRST mode, then LAST mode
+
+FIRST mode: tap a pad = set pattern start point
+LAST mode:  tap a pad = set pattern end point
+
+Example: First=4, Last=11
+  → only plays steps 4 through 11 (8 steps)
+  → creates half-time or unusual length patterns
+
+Default: First=0, Last=15 (full 16 steps)
+
+---
+
+## Saving and Loading
+
+### Save Pattern (SAVE PS button)
+Press SAVE PS → cycles through save modes:
+  SAVE PS = save pattern AND sounds together
+  SAVE P  = save pattern only
+  SAVE S  = save sounds only
+
+Then tap pad 0-15 to select which slot to save to
+16 pattern slots available (0-15)
+
+### Load Pattern (LOAD PS button)
+Press LOAD PS → cycles through load modes:
+  LOAD PS = load pattern AND sounds
+  LOAD P  = load pattern only
+  LOAD S  = load sounds only
+
+Then tap pad 0-15 to select which slot to load
+
+---
+
+## Song Mode
+
+### What is Song Mode?
+Song mode chains patterns together automatically.
+Instead of one pattern looping forever,
+the machine advances through patterns in sequence.
+
+16 memories available
+Each memory holds 16 patterns
+
+### Setting Up a Song
+1. Save your patterns to slots 0-15 first
+2. Press SONG button → enable song mode
+3. Press PLAY → sequencer plays pattern 0
+                then automatically loads pattern 1
+                then pattern 2... etc
+4. Loops back to beginning after last pattern
+
+### Song First/Last Memory
+SHIFT + SONG → memory select mode
+  Then use MUTE button to access:
+  MFIRS = tap pad to set first memory
+  MLAST = tap pad to set last memory
+
+Example: First=2, Last=5
+  → song plays patterns 2, 3, 4, 5 then repeats
+
+---
+
+## Random Generation
+
+### RND P Button — Three Modes
+Press once   → RANDOM PATTERN mode
+  Tap any pad = generates random step pattern
+                for that track
+
+Press twice  → RANDOM SOUND mode
+  Tap any pad = assigns a random sample
+                to that track with random parameters
+
+Press three times → RANDOM NOTES mode
+  Tap any pad = fills melodic array with
+                random pitches for that track
+
+---
+
+## Scales
+
+Select SCA bar (rightmost parameter)
+Use +1/-1 to select scale
+
+Available scales:
+  0  = Free (no quantization)
+  1  = Major
+  2  = Minor Natural
+  3  = Minor Harmonic
+  4  = Minor Melodic
+  5  = Pentatonic Major
+  6  = Pentatonic Minor
+  7  = Blues Minor
+  8  = Dorian
+  9  = Phrygian
+  10 = Lydian
+  11 = Mixolydian
+  12 = Locrian
+
+When scale is set:
+  Random notes use only scale notes
+  Melodic mode quantizes to scale
+
+---
+
+## Waveform Display
+
+Bottom left area of screen shows:
+  Visual waveform of current sample
+  Updates when you change sample or track
+
+SAM XX XX below waveform shows:
+  First number  = sample index (0-49)
+  Second number = track number
+
+---
+
+## Master Controls
+
+### Master Volume (MVO)
+Global output volume
+Affects ALL tracks simultaneously
+Range: 0-127
+
+### Master Filter (MFI)
+Global low pass filter
+0   = fully open (no filtering)
+127 = fully closed
+Affects ALL tracks simultaneously
+
+### Transpose (TRP)
+Shifts all melodic tracks up or down
+-1 = down one semitone (then resets)
++1 = up one semitone (then resets)
+Auto-resets after applying
+
+### Master Pitch (MPI)
+Shifts ALL tracks pitch
+-1 = down one semitone
++1 = up one semitone
+Auto-resets after applying
+
+---
+
+## Sync Mode (SYN)
+
+0 = Internal clock (standalone)
+    Machine generates its own timing
+
+1 = Master
+    Sends sync signal to other machines
+    via Serial port
+
+2 = Slave
+    Waits for sync from external source
+    Does not start until sync received
+
+---
+
+## Tips and Tricks
+
+### Building a Basic Beat
+1. Track 0  = Kick drum
+   Steps: 0, 4, 8, 12 (four on the floor)
+
+2. Track 1  = Snare
+   Steps: 4, 12 (backbeat)
+
+3. Track 2  = Hihat
+   Steps: 0, 2, 4, 6, 8, 10, 12, 14 (8th notes)
+
+4. Press PLAY → classic 4/4 beat
+
+### Creating Variation
+Use FIRST/LAST step to create:
+  8-step patterns  (Last=7)
+  12-step patterns (Last=11)
+  Unusual lengths that phase against each other
+
+### Layering Samples
+Assign same sample to multiple tracks
+Use different PAN settings (-64, 0, +64)
+Use slightly different PITCH settings
+Creates wide, layered sound
+
+### Chop a Sample
+Select same sample for track 0 and track 1
+Track 0: INI=0,    END=500  (first half)
+Track 1: INI=500,  END=2047 (second half)
+Program alternating steps
+Creates chopped/stuttered effect
+
+### Using Piano Mode Musically
+1. Select SYNTH1 (sample 32)
+2. Set OCT=4 or OCT=5
+3. Press PIANO
+4. Tap pads to play melody
+5. Use SHIFT+PLAY to record in real time
+6. Now you have a melodic line
+
+---
+
+## Hardware Connections
+
+PCM5102A DAC → GPIO 9  (BCK)
+              → GPIO 5  (LCK/WS)
+              → GPIO 14 (DIN)
+
+ADS1115 ADC  → GPIO 17 (SDA) via P5 connector
+(optional)   → GPIO 18 (SCL) via P5 connector
+             → GND, 3.3V
+
+Rotary Encoder → GPIO 7  (CLK)
+(optional)      → GPIO 6  (DT)
+                → GPIO 15 (Button)
+
+---
+
+## Known Limitations
+
+1. Patterns not saved to flash automatically
+   Must use SAVE PS before powering off
+
+2. No SD card support in current build
+   (optional — safe to run without)
+
+3. Rotary encoder optional
+   All functions available via touch screen
+
+4. BLE MIDI disabled
+   Reserved for future update
+
+5. Maximum 16 steps per pattern
+   No 32-step or 64-step patterns yet
+
+6. 50 samples maximum
+   Fixed in flash memory
+   Cannot load new samples without recompiling
+
+---
+
+## Troubleshooting
+
+Problem                  Solution
+No sound                 Check PCM5102A wiring, check MVO not at 0
+Pattern not playing      Press PLAY, check steps programmed in WRITE mode
+Wrong sounds             Check SAM parameter for each track
+Screen unresponsive      Check touch calibration, try reboot
+Serial no output         Tools → USB CDC On Boot → Enabled
+Freezes on boot          Check #define ads_ok is commented out
+                         if no ADS1115 connected
+Only plays 2 sounds      Was ISR audio bug — fixed in current build
+Pattern changes itself   Avoid touching pads while in WRITE mode
+                         before pressing PLAY
