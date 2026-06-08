@@ -150,6 +150,8 @@ for (int i = 0; i < DMA_BUF_LEN; i++) {
     // Almacenar en el buffer de salida
     out_buf[i * 2]     = (uint16_t)DRUMTOTAL_L_OUT;  
     out_buf[i * 2 + 1] = (uint16_t)DRUMTOTAL_R_OUT;
+
+    viz_push_sample(DRUMTOTAL_L_OUT, DRUMTOTAL_R_OUT);
   } // fin bucle del buffer de audio
 
   // Escribir buffer de audio  

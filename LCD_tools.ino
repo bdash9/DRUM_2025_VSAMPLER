@@ -455,6 +455,7 @@ void clearPATTERN() {
 
 
 void drawBar(byte bar){
+    if (viz_mode > 0) return;  
 
   // Color
   int qcolor=ZCYAN;

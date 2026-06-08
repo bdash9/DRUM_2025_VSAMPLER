@@ -4,8 +4,10 @@
 // ZCARLOS 2025
 // V002 beta
 
+//
 // Lots of bugs
 // Modified by Ben
+//
 
 // includes
 #include <Arduino.h>
@@ -226,6 +228,11 @@ void initSeqTimer();
 void startSeqTimer();
 void stopSeqTimer();
 void updateSeqTempo();
+
+extern int viz_mode;                            // defined in visualizer.ino
+void viz_push_sample(int16_t L, int16_t R);
+void viz_toggle();
+void viz_draw();
 
 // 16+16+8+8
 int BPOS[48][4]; // filled in setup
@@ -827,13 +834,14 @@ for (int f = 0; f < 16; f++) {
 }
 Serial.println("Patterns cleared");
 
-
+/*
 // Ben - hardcoded test pattern
 // Pattern for track 0: beats on every step
 pattern[0] = 0xFFFF;  // all 16 steps on track 0
 // Pattern for track 1: every other step  
 pattern[1] = 0xAAAA;  // alternating steps on track 1
 Serial.println("Test pattern loaded");
+*/
 
   // // FX
   // if (!psramFound()) {
@@ -1064,6 +1072,8 @@ if (millis() - lastDebug > 300) {
   REFRESH_STATUS();
   showLastTouched();
   clearLastTouched();
+  viz_draw(); 
+  viz_init();
   
   #ifdef ads_ok
   unsigned long currentMillis = millis();

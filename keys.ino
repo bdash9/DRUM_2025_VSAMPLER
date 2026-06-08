@@ -311,6 +311,9 @@ void DO_KEYPAD(){
               modeZ=tRndS2;
               break;  
 
+            // SHIFT + SAVE PS = clear ALL saves
+
+
             // Reset mutes, solos, first/last step
             case 20:
               mutes=0;
@@ -388,6 +391,10 @@ void DO_KEYPAD(){
               counter1=counter1+1;
             }
             do_rot();
+            break;
+
+          case 29:                 
+            viz_toggle();
             break;
 
           case 31:
