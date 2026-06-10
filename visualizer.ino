@@ -80,7 +80,7 @@ void viz_toggle() {
         gfx->fillRect(VIZ_X, VIZ_Y, VIZ_W, VIZ_H, BLACK);
         draw8aBar();
         draw8bBar();
-        drawBT(29, DARKGREY, "  VIS  ");
+        drawBT(29, DARKGREY, " VISUAL ");
     } else {
         static const char* lbl[] = {
             "", " VIZ 1  ", "   EQ   ",
@@ -92,7 +92,7 @@ void viz_toggle() {
 }
 
 void viz_init() {
-    drawBT(29, DARKGREY, "  VISUAL  ");
+    drawBT(29, DARKGREY, " VISUAL ");
 }
 
 // ============================================================

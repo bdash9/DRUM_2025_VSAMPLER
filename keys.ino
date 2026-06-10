@@ -397,8 +397,11 @@ void DO_KEYPAD(){
             viz_toggle();
             break;
 
-          case 30:                  
+          case 30:
             rand_pattern();
+            drawBT(30, ZYELLOW, rand_get_label());  // flash yellow
+            refreshMODES   = true;  // ← triggers REFRESH_KEYS to reset it next frame
+            refreshPATTERN = true;
             break;
 
           case 31:

@@ -1,122 +1,214 @@
 // ============================================================
-//  randomizer.ino  v2.0  —  Musical Pattern Randomizer
-//  Button 30 — each press picks a DIFFERENT style
-//  Button label briefly shows which style was selected
+//  randomizer.ino  –  DRUM_2025_VSAMPLER
+//
+//  Each RAND BT press:
+//    1. Cycles genre (ROCK→REGGAE→JAZZ→HIPHOP→LATIN→EUCLIDEAN)
+//    2. Picks new samples from role-appropriate pools
+//    3. Refreshes parameter display immediately
+//
+//  ── TUNE THE POOLS BELOW to match your actual samples ────────
+//  Open your SOUNDS folder, listen to each file, then move its
+//  index number into the correct pool.
 // ============================================================
 
-// ---- SET THESE to match your current sound set -------------
-// These are pattern[] array indices (0-15), not sound numbers
-#define KICK_T    0    // Kick drum track
-#define SNARE_T   1    // Snare drum track
-#define HATC_T    2    // Closed hi-hat track
-#define HATO_T    3    // Open hi-hat track
-#define CLAP_T    4    // Clap / rimshot track
-// Tracks 5-15: ultra-sparse scatter only
+#define RAND_NUM_STEPS   16
+#define RAND_NUM_VOICES  16
 
-// ---- STYLE 0: Standard Rock --------------------------------
-// Kick on 1 and 3, snare on 2 and 4, straight 8th hats
-static const uint8_t K_ROCK[16] = {90,0,0,5, 0,0,0,10, 85,0,0,5, 10,0,35,5};
-static const uint8_t S_ROCK[16] = {0,0,0,0, 90,0,5,0, 0,0,5,0, 85,0,10,5};
-static const uint8_t HC_ROCK[16]= {80,0,80,0, 80,0,80,0, 80,0,80,0, 80,0,80,0};
-static const uint8_t HO_ROCK[16]= {0,0,0,25, 0,0,0,30, 0,0,0,25, 0,0,0,40};
+// ── Genre IDs ────────────────────────────────────────────────
+#define RAND_MODE_EUCLIDEAN  0
+#define RAND_MODE_ROCK       1
+#define RAND_MODE_REGGAE     2
+#define RAND_MODE_JAZZ       3
+#define RAND_MODE_HIPHOP     4
+#define RAND_MODE_LATIN      5
+#define RAND_NUM_MODES       6
 
-// ---- STYLE 1: Funk -----------------------------------------
-// Syncopated kick, 16th note hats, open hat pre-beat
-static const uint8_t K_FUNK[16] = {85,0,25,0, 15,0,0,10, 70,0,20,0, 0,10,0,20};
-static const uint8_t S_FUNK[16] = {0,0,5,0, 80,0,10,0, 5,0,0,0, 75,0,15,10};
-static const uint8_t HC_FUNK[16]= {70,35,70,35, 70,35,70,35, 70,35,70,35, 70,35,70,35};
-static const uint8_t HO_FUNK[16]= {0,0,0,0, 0,0,0,45, 0,0,0,0, 0,0,0,50};
-
-// ---- STYLE 2: Hip-Hop Sparse --------------------------------
-// Minimal kick pattern, snare on 2&4 only, sparse hat
-static const uint8_t K_HH[16]  = {90,0,0,0, 0,0,0,0, 65,0,0,30, 0,0,20,0};
-static const uint8_t S_HH[16]  = {0,0,0,0, 85,0,0,0, 0,0,0,0, 80,0,0,0};
-static const uint8_t HC_HH[16] = {55,0,0,55, 0,0,55,0, 0,55,0,0, 55,0,0,55};
-static const uint8_t HO_HH[16] = {0,0,0,0, 0,0,0,60, 0,0,0,0, 0,0,0,0};
-
-// ---- STYLE 3: Offbeat / Reggae feel -------------------------
-// Kick on 1 only, snare displaced, offbeat hats
-static const uint8_t K_OB[16]  = {80,0,0,0, 0,0,0,0, 0,0,0,0, 80,0,0,0};
-static const uint8_t S_OB[16]  = {0,0,0,0, 85,0,0,0, 0,0,0,0, 0,0,85,0};
-static const uint8_t HC_OB[16] = {0,75,0,75, 0,75,0,75, 0,75,0,75, 0,75,0,75};
-static const uint8_t HO_OB[16] = {0,0,0,0, 0,0,0,0, 0,0,0,70, 0,0,0,0};
-
-// ---- STYLE 4: Four-on-Floor / Dance -------------------------
-// Kick every beat, snare on 2&4, steady hats
-static const uint8_t K_4F[16]  = {95,0,0,0, 95,0,0,0, 95,0,0,0, 95,0,0,0};
-static const uint8_t S_4F[16]  = {0,0,0,0, 85,0,0,0, 0,0,0,0, 85,0,5,0};
-static const uint8_t HC_4F[16] = {70,70,70,70, 70,70,70,70, 70,70,70,70, 70,70,70,70};
-static const uint8_t HO_4F[16] = {0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,70,0};
-
-// ---- Style name shown briefly on button --------------------
-static const char* STYLE_NAME[] = {
-    " ROCK  ", " FUNK  ", " H-HOP ", "REGGAE ", " DANCE "
+static const char* RAND_LABELS[RAND_NUM_MODES] = {
+    "RAND BT ", "  ROCK  ", " REGGAE ",
+    "  JAZZ  ", "HIP HOP ", " LATIN  "
 };
 
-static int last_rand_style = -1;   // prevents same style twice in a row
+// ════════════════════════════════════════════════════════════
+//  SAMPLE POOLS  —  edit freely
+//
+//  Index 0–49 maps to SAMPLE00–SAMPLE49 / SYNTH1 / SYNTH4 / SYNTH6
+//    32 = SYNTH1    40 = SYNTH4    43 = SYNTH6
+//
+//  Default groupings assume a typical drum pack ordering:
+//    0– 7  Kick / bass drum variants
+//    8–15  Snare / rimshot variants
+//   16–23  Closed hi-hat variants
+//   24–31  Open hi-hat / cymbal / ride variants
+//   32     SYNTH1  (synth bass)
+//   33–39  Tom / bongo / conga variants
+//   40     SYNTH4  (synth pad)
+//   41–42  Misc percussion
+//   43     SYNTH6  (synth lead)
+//   44–49  Clap / snap / shaker variants
+// ════════════════════════════════════════════════════════════
 
-static inline bool rnd_hit(int pct) { return (int)random(100) < pct; }
+static const uint8_t P_KICK[]   = { 0, 1, 2, 3, 4, 5, 6, 7 };
+static const uint8_t P_SNARE[]  = { 8, 9,10,11,12,13,14,15 };
+static const uint8_t P_CHIHAT[] = {16,17,18,19,20,21,22,23 };
+static const uint8_t P_OHIHAT[] = {24,25,26,27,28,29,30,31 };
+static const uint8_t P_TOM[]    = {33,34,35,36,37,38,39    };
+static const uint8_t P_CLAP[]   = {44,45,46,47,48,49       };
+static const uint8_t P_PERC[]   = {41,42,44,45,46          };
+static const uint8_t P_SYNTH[]  = {32,40,43                };
 
-static uint16_t build_pat(const uint8_t prob[16]) {
-    uint16_t p = 0;
-    for (int s = 0; s < 16; s++)
-        if (rnd_hit(prob[s])) p |= (1 << s);
-    return p;
-}
+// Full pool — used for voices 12-15 for maximum variety
+static const uint8_t P_ALL[] = {
+     0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,
+    16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,
+    32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49
+};
 
-// ============================================================
-void rand_pattern() {
-    // Pick a style — never repeat the same one twice
-    int style;
-    do { style = random(5); } while (style == last_rand_style);
-    last_rand_style = style;
+#define PSIZ(a) ((uint8_t)(sizeof(a)/sizeof(a[0])))
 
-    // Clear all 16 tracks
-    for (int f = 0; f < 16; f++) pattern[f] = 0;
+// ── Voice 0–7 → pool mapping ──────────────────────────────────
+//   0=Kick  1=Snare  2=CHH  3=OHH  4=Tom1  5=Tom2  6=Clap  7=Perc
+static const uint8_t* const V_POOL[8] = {
+    P_KICK, P_SNARE, P_CHIHAT, P_OHIHAT,
+    P_TOM,  P_TOM,   P_CLAP,   P_PERC
+};
+static const uint8_t V_POOL_SZ[8] = {
+    PSIZ(P_KICK),  PSIZ(P_SNARE),  PSIZ(P_CHIHAT), PSIZ(P_OHIHAT),
+    PSIZ(P_TOM),   PSIZ(P_TOM),    PSIZ(P_CLAP),   PSIZ(P_PERC)
+};
 
-    // Select probability tables for this style
-    const uint8_t *kp, *sp, *hcp, *hop;
-    switch (style) {
-        case 0: kp=K_ROCK; sp=S_ROCK; hcp=HC_ROCK; hop=HO_ROCK; break;
-        case 1: kp=K_FUNK; sp=S_FUNK; hcp=HC_FUNK; hop=HO_FUNK; break;
-        case 2: kp=K_HH;   sp=S_HH;   hcp=HC_HH;   hop=HO_HH;   break;
-        case 3: kp=K_OB;   sp=S_OB;   hcp=HC_OB;   hop=HO_OB;   break;
-        default:kp=K_4F;   sp=S_4F;   hcp=HC_4F;   hop=HO_4F;   break;
+// ── Euclidean density weights per voice ──────────────────────
+static const uint8_t VOICE_WEIGHT[RAND_NUM_VOICES] = {
+    55, 48, 78, 28, 42, 35, 46, 24,   // 0-7  drum voices
+    50, 50, 50, 50, 50, 50, 50, 50    // 8-15 aux voices
+};
+
+// ── Genre bitmask patterns ────────────────────────────────────
+static const uint16_t GENRE_PATTERNS[RAND_NUM_MODES][8] = {
+    // EUCLIDEAN — generated dynamically
+    {0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000},
+    // ROCK: Kick 1&3, Snare 2&4, CHH all 16ths, OHH beat 3
+    {0x0101,0x1010,0xFFFF,0x0100,0x0000,0x0000,0x0000,0x0000},
+    // REGGAE: one-drop kick, off-beat HH, clap off-beats
+    {0x0100,0x1010,0x4444,0x0010,0x0000,0x0000,0x4444,0x0000},
+    // JAZZ: sparse kick, ride comping, ghost snare
+    {0x0401,0x1010,0x2929,0x1000,0x0000,0x0200,0x0000,0x0000},
+    // HIP HOP: heavy kick, 8th HH, clap beat 4
+    {0x0501,0x1010,0x5555,0x0100,0x0000,0x0000,0x1000,0x0000},
+    // LATIN: son clave 3:2, conga pattern
+    {0x0101,0x1449,0x5555,0x0000,0x2124,0x0000,0x0000,0x0000},
+};
+
+// ── Module state ─────────────────────────────────────────────
+static uint8_t _rand_mode    = 0;
+static uint8_t _rand_density = 50;
+static bool    _rand_seeded  = false;
+
+// ── Internal helpers ──────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────
+//  _randomizeSounds()
+//  Picks a new sample for every voice from its role-pool,
+//  then applies it and refreshes the parameter bar display.
+// ─────────────────────────────────────────────────────────────
+static void _randomizeSounds() {
+
+    // Voices 0–7: dedicated drum role pools
+    for (int v = 0; v < 8; v++) {
+        ROTvalue[v][0] = V_POOL[v][ random(V_POOL_SZ[v]) ];
+        setSound(v);
     }
 
-    // Build the four main tracks
-    pattern[KICK_T]  = build_pat(kp);
-    pattern[SNARE_T] = build_pat(sp);
-    pattern[HATC_T]  = build_pat(hcp);
-    pattern[HATO_T]  = build_pat(hop);
-    pattern[CLAP_T]  = build_pat(sp);   // clap loosely follows snare
+    // Voices 8–11: synth / melodic texture
+    for (int v = 8; v < 12; v++) {
+        ROTvalue[v][0] = P_SYNTH[ random(PSIZ(P_SYNTH)) ];
+        setSound(v);
+    }
 
-    // Ultra-sparse scatter on tracks 5-15 (~0.6 hits per bar average)
-    static const uint8_t SPARSE[16] = {4,4,4,4, 4,4,4,4, 4,4,4,4, 4,4,4,4};
-    for (int t = 5; t < 16; t++)
-        pattern[t] = build_pat(SPARSE);
+    // Voices 12–15: anything goes — full pool for maximum variety
+    for (int v = 12; v < RAND_NUM_VOICES; v++) {
+        ROTvalue[v][0] = P_ALL[ random(PSIZ(P_ALL)) ];
+        setSound(v);
+    }
 
-    // ---- Musical guarantees --------------------------------
-    // Kick always fires on beat 1 (step 0)
-    pattern[KICK_T] |= (1 << 0);
-
-    // Snare always fires on beats 2 and 4 (steps 4 and 12)
-    pattern[SNARE_T] |= (1 << 4) | (1 << 12);
-
-    // Four-on-floor: kick on all four downbeats
-    if (style == 4)
-        pattern[KICK_T] |= (1<<0)|(1<<4)|(1<<8)|(1<<12);
-
-    // Open hat never fires on same step as closed hat
-    pattern[HATO_T] &= ~pattern[HATC_T];
-
-    // ---- Refresh display -----------------------------------
-    if (viz_mode == 0) { draw8aBar(); draw8bBar(); }
-    drawBT(30, ZMAGENTA, STYLE_NAME[style]);   // briefly show style
-    delay(200);
-    drawBT(30, DARKGREY, " RAND B ");
+    // Refresh the parameter bars so SAM column shows new values
+    draw8aBar();
 }
 
+static void _euclid(uint8_t* buf, int k, int n) {
+    memset(buf, 0, n);
+    if (k <= 0)  return;
+    if (k >= n) { memset(buf, 1, n); return; }
+    int acc = 0;
+    for (int i = 0; i < n; i++) {
+        acc += k;
+        if (acc >= n) { acc -= n; buf[i] = 1; }
+    }
+}
+
+static void _rotate(uint8_t* buf, int n, int r) {
+    if (n <= 1) return;
+    r = ((r % n) + n) % n;
+    if (r == 0) return;
+    uint8_t tmp[32];
+    for (int i = 0; i < n; i++) tmp[(i + n - r) % n] = buf[i];
+    memcpy(buf, tmp, n);
+}
+
+static void _writeToBitmask(int v, uint8_t* buf, int n) {
+    pattern[v] = 0;
+    for (int s = 0; s < n; s++)
+        if (buf[s]) bitSet(pattern[v], s);
+}
+
+static void _euclid_voice(int v, int density) {
+    uint8_t tmp[RAND_NUM_STEPS];
+    float   wt = (v < 8) ? VOICE_WEIGHT[v] / 100.0f : 0.4f;
+    int     k  = (int)roundf(RAND_NUM_STEPS * (density / 100.0f) * wt);
+    k += (int)random(3) - 1;
+    k  = constrain(k, 0, RAND_NUM_STEPS);
+    _euclid(tmp, k, RAND_NUM_STEPS);
+    _rotate(tmp, RAND_NUM_STEPS, (int)random(RAND_NUM_STEPS));
+    _writeToBitmask(v, tmp, RAND_NUM_STEPS);
+}
+
+// ── Public API ────────────────────────────────────────────────
+
 void rand_init() {
-    drawBT(30, DARKGREY, " RAND B ");
+    if (_rand_seeded) return;
+    randomSeed(esp_random());
+    _rand_seeded = true;
+}
+
+const char* rand_get_label() {
+    return RAND_LABELS[_rand_mode];
+}
+
+void rand_pattern() {
+    _rand_mode = (_rand_mode + 1) % RAND_NUM_MODES;
+
+    // ── Step 1: Set rhythm pattern ────────────────────────────
+    if (_rand_mode == RAND_MODE_EUCLIDEAN) {
+        for (int v = 0; v < RAND_NUM_VOICES; v++)
+            _euclid_voice(v, _rand_density);
+    } else {
+        for (int v = 0; v < 8; v++)
+            pattern[v] = GENRE_PATTERNS[_rand_mode][v];
+        for (int v = 8; v < RAND_NUM_VOICES; v++)
+            _euclid_voice(v, 20);
+    }
+
+    // ── Step 2: Randomize sound assignments ───────────────────
+    _randomizeSounds();
+
+    // Debug — shows which samples were chosen
+    Serial.printf("[RAND] %s  K=%d Sn=%d HH=%d  snd0=%d snd1=%d snd2=%d\n",
+                  RAND_LABELS[_rand_mode],
+                  (int)ROTvalue[0][0],
+                  (int)ROTvalue[1][0],
+                  (int)ROTvalue[2][0],
+                  pattern[0], pattern[1], pattern[2]);
+}
+
+void rand_set_density(int d) {
+    _rand_density = (uint8_t)constrain(d, 0, 100);
 }

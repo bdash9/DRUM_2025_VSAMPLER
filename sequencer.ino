@@ -10,19 +10,14 @@ static esp_timer_handle_t seq_timer_handle = NULL;
 
 void IRAM_ATTR tic();
 
-// Timer callback — fires at PPQN_24 rate (24x per beat)
 static void seq_timer_cb(void* arg) {
     if (!playing) return;
 
-    // FX1 repeat modes
     if (!(seq_tick % 12) && fx1==1) pendingTrigger[selected_sound] = 1;
     if (!(seq_tick % 6)  && fx1==2) pendingTrigger[selected_sound] = 1;
     if (!(seq_tick % 3)  && fx1==3) pendingTrigger[selected_sound] = 1;
 
-    // Advance step every 6 ticks = 16th note
     if (!(seq_tick % 6)) tic();
-
-    // Clear step highlight
     if ((seq_tick % 6) == 4) clearPADSTEP = true;
 
     seq_tick++;
@@ -31,11 +26,11 @@ static void seq_timer_cb(void* arg) {
 
 void initSeqTimer() {
     esp_timer_create_args_t args = {};
-    args.callback               = seq_timer_cb;
-    args.arg                    = NULL;
-    args.dispatch_method        = ESP_TIMER_TASK;
-    args.name                   = "seq";
-    args.skip_unhandled_events  = true;
+    args.callback              = seq_timer_cb;
+    args.arg                   = NULL;
+    args.dispatch_method       = ESP_TIMER_TASK;
+    args.name                  = "seq";
+    args.skip_unhandled_events = true;
     esp_err_t err = esp_timer_create(&args, &seq_timer_handle);
     Serial.printf("initSeqTimer: %s\n", err==ESP_OK ? "OK" : "FAILED");
 }
@@ -49,9 +44,8 @@ void startSeqTimer() {
 }
 
 void stopSeqTimer() {
-    if (seq_timer_handle != NULL) {
+    if (seq_timer_handle != NULL)
         esp_timer_stop(seq_timer_handle);
-    }
 }
 
 void updateSeqTempo() {
@@ -63,7 +57,6 @@ void updateSeqTempo() {
 
 void IRAM_ATTR tic() {
     tic_counter++;
-
     if (sstep == firstStep) sync_flag = true;
 
     for (int f = 0; f < 16; f++) {
@@ -72,7 +65,8 @@ void IRAM_ATTR tic() {
                 if (bitRead(pattern[f], sstep)) {
                     latch[f]          = 0;
                     pendingTrigger[f] = 1;
-                    pendingPitch[f]   = bitRead(isMelodic, f) ? melodic[f][sstep] : 0;
+                    pendingPitch[f]   = bitRead(isMelodic, f)
+                                        ? melodic[f][sstep] : 0;
                 }
             }
         }

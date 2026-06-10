@@ -158,13 +158,12 @@ void drawBT(byte bt, int color, String texto = "") {
   BCOLOR[bt] = color;
 
   gfx->drawRect(BPOS[bt][0] + 3, BPOS[bt][1] + 3, BPOS[bt][2] - 7, BPOS[bt][3] - 7, color); 
-  if (color!=DARKGREY) {
-    gfx->drawRect(BPOS[bt][0] + 4, BPOS[bt][1] + 4, BPOS[bt][2] - 9, BPOS[bt][3] - 9, color);
-    gfx->drawRect(BPOS[bt][0] + 5, BPOS[bt][1] + 5, BPOS[bt][2] - 11, BPOS[bt][3] - 11, color);  
-  } else {
-    gfx->drawRect(BPOS[bt][0] + 4, BPOS[bt][1] + 4, BPOS[bt][2] - 9, BPOS[bt][3] - 9, BLACK);
-    gfx->drawRect(BPOS[bt][0] + 5, BPOS[bt][1] + 5, BPOS[bt][2] - 11, BPOS[bt][3] - 11, BLACK);      
-  } 
+  if (color != DARKGREY) {
+    // Active button: triple border highlight
+    gfx->drawRect(BPOS[bt][0] + 4, BPOS[bt][1] + 4, BPOS[bt][2] - 9,  BPOS[bt][3] - 9,  color);
+    gfx->drawRect(BPOS[bt][0] + 5, BPOS[bt][1] + 5, BPOS[bt][2] - 11, BPOS[bt][3] - 11, color);
+  }
+  // DARKGREY: single border only — inner BLACK rects caused a visible gap
 
 
   /////////////////////// Button texts
@@ -203,6 +202,9 @@ void REFRESH_KEYS() {
 
   if (refreshMODES) {
     refreshMODES = false;
+
+    // Reset RAND BT to grey with current genre label
+    drawBT(30, DARKGREY, rand_get_label());   // ← ADD this line
 
     // Borrar modos
     for (byte f = 16; f < 24; f++) {
@@ -522,6 +524,10 @@ void drawBar(byte bar){
     }
 
   if (bar<3) drawWaveform();
+    // Redraw label — value text with BLACK background erases it
+  gfx->setCursor(BPOS[qbar][0]+2, BPOS[qbar][1]+2+(BPOS[qbar][3]-24)+18);
+  gfx->setTextColor(DARKGREY, BLACK);
+  gfx->print(trot[bar]);
 
 }
 
