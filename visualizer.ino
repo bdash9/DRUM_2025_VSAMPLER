@@ -73,24 +73,26 @@ static uint16_t hue565(uint8_t h) {
 //  viz_toggle()  —  called by button 29 handler
 // ============================================================
 void viz_toggle() {
-    viz_mode    = (viz_mode + 1) % 6;
+    viz_mode    = (viz_mode + 1) % 7;   // ← was % 6, now 7 modes
     viz_cleared = false;
 
     if (viz_mode == 0) {
-        // Restore bars
         gfx->fillRect(VIZ_X, VIZ_Y, VIZ_W, VIZ_H, BLACK);
         draw8aBar();
         draw8bBar();
         drawBT(29, DARKGREY, "  VIS  ");
     } else {
-        static const char* lbl[] = { "", " VIZ 1  ", "   EQ   ",
-                                      " SCOPE  ", "  BEAT  ", " PLASMA " };
+        static const char* lbl[] = {
+            "", " VIZ 1  ", "   EQ   ",
+            " SCOPE  ", "  BEAT  ", " PLASMA ",
+            " METRO  "              // ← new Mode 6
+        };
         drawBT(29, ZMAGENTA, lbl[viz_mode]);
     }
 }
 
 void viz_init() {
-    drawBT(29, DARKGREY, "  VIS  ");
+    drawBT(29, DARKGREY, "  VISUAL  ");
 }
 
 // ============================================================
@@ -104,12 +106,13 @@ void viz_draw() {
         gfx->fillRect(VIZ_X, VIZ_Y, VIZ_W, VIZ_H, BLACK);
     }
 
-    switch (viz_mode) {
-        case 1: viz_ambient();   break;
-        case 2: viz_eq();        break;
-        case 3: viz_scope();     break;
-        case 4: viz_particles(); break;
-        case 5: viz_plasma();    break;
+switch (viz_mode) {
+        case 1: viz_ambient();    break;
+        case 2: viz_eq();         break;
+        case 3: viz_scope();      break;
+        case 4: viz_particles();  break;
+        case 5: viz_plasma();     break;
+        case 6: viz_metronome();  break; 
     }
 }
 
@@ -221,35 +224,49 @@ void viz_scope() {
     static uint32_t prev    = 0;
     static uint8_t  hue_off = 0;
     uint32_t now = millis();
-    if (now - prev < 33) return;   // ~30 fps
+    if (now - prev < 33) return;
     prev = now;
     hue_off += 2;
 
-    // Snapshot oldest → newest from ring buffer
+    // Snapshot ring buffer
     int16_t snap[VIZ_SCOPE_LEN];
-    uint16_t rd = viz_scope_wr;   // oldest entry
+    uint16_t rd = viz_scope_wr;
     for (int i = 0; i < VIZ_SCOPE_LEN; i++)
         snap[i] = viz_scope_buf[(rd + i) % VIZ_SCOPE_LEN];
 
-    // Find rising zero-crossing in first half to sync the display
+    // Find rising zero-crossing to sync display
     int sync_i = 0;
     for (int i = 1; i < VIZ_SCOPE_LEN / 2; i++) {
         if (snap[i - 1] <= 0 && snap[i] > 0) { sync_i = i; break; }
     }
-    // Ensure we always have VIZ_W samples available after sync point
     if (sync_i + VIZ_W >= VIZ_SCOPE_LEN) sync_i = 0;
+
+    // AUTO-SCALE — find actual peak in the visible window
+    // Use a minimum floor so a flat line shows when silent
+    // rather than over-amplifying noise
+    int16_t snap_peak = 400;   // minimum floor
+    for (int i = sync_i; i < sync_i + VIZ_W; i++) {
+        int16_t a = snap[i] < 0 ? -snap[i] : snap[i];
+        if (a > snap_peak) snap_peak = a;
+    }
+    // Add 15% headroom so waveform never clips the top/bottom edge
+    int scale = (int)snap_peak + ((int)snap_peak * 15 / 100);
 
     gfx->fillRect(VIZ_X, VIZ_Y, VIZ_W, VIZ_H, BLACK);
     // Faint centre line
-    gfx->drawFastHLine(VIZ_X, VIZ_Y + VIZ_H / 2, VIZ_W, RGB565(20, 20, 20));
+    gfx->drawFastHLine(VIZ_X, VIZ_Y + VIZ_H / 2, VIZ_W, 0x1082);
 
     for (int x = 0; x < VIZ_W - 1; x++) {
         int16_t s1 = snap[sync_i + x];
         int16_t s2 = snap[sync_i + x + 1];
-        int y1 = constrain(map((int)s1,-32768,32767, VIZ_Y+VIZ_H-2, VIZ_Y+2),
-                           VIZ_Y+1, VIZ_Y+VIZ_H-2);
-        int y2 = constrain(map((int)s2,-32768,32767, VIZ_Y+VIZ_H-2, VIZ_Y+2),
-                           VIZ_Y+1, VIZ_Y+VIZ_H-2);
+
+        int y1 = constrain(map((int)s1, -scale, scale,
+                               VIZ_Y + VIZ_H - 2, VIZ_Y + 2),
+                           VIZ_Y + 1, VIZ_Y + VIZ_H - 2);
+        int y2 = constrain(map((int)s2, -scale, scale,
+                               VIZ_Y + VIZ_H - 2, VIZ_Y + 2),
+                           VIZ_Y + 1, VIZ_Y + VIZ_H - 2);
+
         uint16_t col = hue565((uint8_t)(map(x, 0, VIZ_W, 0, 255) + hue_off));
         gfx->drawLine(VIZ_X + x, y1, VIZ_X + x + 1, y2, col);
     }
@@ -368,3 +385,65 @@ void viz_plasma() {
         }
     }
 }
+// ============================================================
+//  MODE 6  —  Metronome beat light
+//  4 circles pulse in sequence at the current BPM
+//  Works whether the sequencer is playing or stopped
+// ============================================================
+void viz_metronome() {
+    static uint32_t last_beat  = 0;
+    static int      last_bpm   = -1;
+    static bool     last_lit   = false;
+    static uint8_t  beat_hue   = 0;
+
+    uint32_t now     = millis();
+    uint32_t beat_ms = 60000UL / (uint32_t)constrain((int)bpm, 20, 300);
+
+    // Detect new beat tick
+    bool new_beat = (now - last_beat >= beat_ms);
+    if (new_beat) {
+        last_beat = now;
+        beat_hue += 60;   // shift colour each beat
+    }
+
+    // Circle is lit for first 100ms of each beat
+    bool circle_lit = ((now - last_beat) < 100);
+
+    // Only redraw when lit state or BPM changes — saves CPU
+    int bpm_now = (int)bpm;
+    if (circle_lit == last_lit && bpm_now == last_bpm) return;
+
+    last_lit = circle_lit;
+    last_bpm = bpm_now;
+
+    // ---- BPM text on the left --------------------------------
+    char buf[8];
+    sprintf(buf, "%3d", bpm_now);
+    gfx->fillRect(VIZ_X, VIZ_Y, 120, VIZ_H, BLACK);   // clear left side
+
+    gfx->setTextSize(3);
+    gfx->setTextColor(0xFFFF, BLACK);
+    gfx->setCursor(VIZ_X + 8, VIZ_Y + VIZ_H / 2 - 16);
+    gfx->print(buf);
+
+    gfx->setTextSize(1);
+    gfx->setTextColor(0x7BEF, BLACK);
+    gfx->setCursor(VIZ_X + 24, VIZ_Y + VIZ_H / 2 + 14);
+    gfx->print("BPM");
+
+    // ---- Single beat circle on the right --------------------
+    int cx = VIZ_X + VIZ_W * 3 / 4;
+    int cy = VIZ_Y + VIZ_H / 2;
+    int r  = 28;
+
+    if (circle_lit) {
+        gfx->fillCircle(cx, cy, r, hue565(beat_hue));
+        gfx->fillCircle(cx, cy, r / 2, 0xFFFF);   // white centre
+    } else {
+        gfx->fillCircle(cx, cy, r,     0x2104);   // dark fill
+        gfx->drawCircle(cx, cy, r,     0x528A);   // dim ring
+    }
+
+    gfx->drawRect(VIZ_X, VIZ_Y, VIZ_W, VIZ_H, DARKGREY);
+}
+

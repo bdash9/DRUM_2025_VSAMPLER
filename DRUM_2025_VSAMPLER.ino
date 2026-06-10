@@ -233,6 +233,8 @@ extern int viz_mode;                            // defined in visualizer.ino
 void viz_push_sample(int16_t L, int16_t R);
 void viz_toggle();
 void viz_draw();
+void rand_pattern();              
+void rand_init();    
 
 // 16+16+8+8
 int BPOS[48][4]; // filled in setup
@@ -1074,6 +1076,7 @@ if (millis() - lastDebug > 300) {
   clearLastTouched();
   viz_draw(); 
   viz_init();
+  rand_init();
   
   #ifdef ads_ok
   unsigned long currentMillis = millis();

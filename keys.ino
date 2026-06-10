@@ -397,6 +397,10 @@ void DO_KEYPAD(){
             viz_toggle();
             break;
 
+          case 30:                  
+            rand_pattern();
+            break;
+
           case 31:
             shifting=!shifting;
             refresh_shift_key();
